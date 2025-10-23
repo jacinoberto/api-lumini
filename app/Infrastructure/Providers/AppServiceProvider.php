@@ -3,12 +3,14 @@
 namespace App\Infrastructure\Providers;
 
 use App\Domain\Repositories\AddressRepositoryInterface;
+use App\Domain\Repositories\BarberRepositoryInterface;
 use App\Domain\Repositories\BarbershopRepositoryInterface;
 use App\Domain\Repositories\BusinessHourRepositoryInterface;
 use App\Domain\Repositories\ServiceRepositoryInterface;
 use App\Domain\Repositories\UserRepositoryInterface;
 use App\Domain\Repositories\ZipCodeRepositoryInterface;
 use App\Infrastructure\Persistence\Eloquent\EloquentAddressRepository;
+use App\Infrastructure\Persistence\Eloquent\EloquentBarberRepository;
 use App\Infrastructure\Persistence\Eloquent\EloquentBarbershopRepository;
 use App\Infrastructure\Persistence\Eloquent\EloquentBusinessHourRepository;
 use App\Infrastructure\Persistence\Eloquent\EloquentServiceRepository;
@@ -35,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ZipCodeRepositoryInterface::class, EloquentZipCodeRepository::class);
         $this->app->bind(BusinessHourRepositoryInterface::class, EloquentBusinessHourRepository::class);
         $this->app->bind(ServiceRepositoryInterface::class, EloquentServiceRepository::class);
+        $this->app->bind(BarberRepositoryInterface::class, EloquentBarberRepository::class);
     }
 
     /**

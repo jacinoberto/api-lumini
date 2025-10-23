@@ -8,4 +8,15 @@ class EloquentServiceRepository implements ServiceRepositoryInterface {
             Service::create(array_merge($service, ['barbershop_id' => $barbershopId]));
         }
     }
+
+    public function create(array $data): Service
+    {
+        return Service::create($data);
+    }
+
+    public function update(Service $service, array $data): Service
+    {
+        $service->update($data);
+        return $service->refresh(); // Retorna o modelo atualizado
+    }
 }

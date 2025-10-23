@@ -9,6 +9,8 @@ use App\Infrastructure\Http\Controllers\Auth\VerifyEmailController;
 use App\Infrastructure\Http\Controllers\BarbershopController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Infrastructure\Http\Controllers\ServiceController;
+use App\Infrastructure\Http\Controllers\BarberController;
 
 // Rotas de Autenticação (Públicas)
 Route::post('/register', [RegisteredUserController::class, 'store'])->middleware('guest');
@@ -32,5 +34,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
         ->middleware(['throttle:6,1']);
 
-    Route::put('/barbershops/{barbershop}', [BarbershopController::class, 'update']);
+    Route::prefix('/barbershops')->group(function () {
+        Route::put('/{barbershop}', [BarbershopController::class, 'update']);
+        Route::get('/{barbershop}/business-hours', [BarbershopController::class, 'getHours']);
+        Route::put('/{barbershop}/business-hours', [BarbershopController::class, 'updateHours']);
+        Route::get('/{barbershop}/services', [ServiceController::class, 'index']);
+        Route::post('/{barbershop}/services', [ServiceController::class, 'store']);
+        Route::put('/{barbershop}/services/{service}', [ServiceController::class, 'update'])->scopeBindings();
+        Route::get('/{barbershop}/barbers', [BarberController::class, 'index']);
+        Route::post('/{barbershop}/barbers', [BarberController::class, 'store']);
+        Route::put('/{barbershop}/barbers/{barber}', [BarberController::class, 'update'])->scopeBindings();
+    });
 });
