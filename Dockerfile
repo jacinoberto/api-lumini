@@ -4,7 +4,7 @@ FROM php:8.2-fpm
 # Defina o diretório de trabalho dentro do container
 WORKDIR /var/www/html
 
-# Instale dependências do sistema, Nginx e extensões PHP necessárias para o Laravel
+# Instale dependências do sistema e Nginx
 RUN apt-get update && apt-get install -y \
     nginx \
     git \
@@ -15,8 +15,11 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     libzip-dev \
-    libpq-dev \ # Para PostgreSQL (remover se usar MySQL/nenhum BD específico aqui)
-    && docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip pdo_pgsql # Adicione pdo_pgsql se usar PostgreSQL
+    libpq-dev # Para PostgreSQL (remover se usar MySQL/nenhum BD específico aqui)
+
+# Instale extensões PHP
+# (Remova pdo_pgsql se não estiver usando PostgreSQL)
+RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip pdo_pgsql
 
 # Limpe o cache do apt
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
