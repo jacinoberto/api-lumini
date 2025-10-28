@@ -13,14 +13,6 @@ return Application::configure(basePath: dirname(__DIR__))
         api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
-
-        then: function () {
-            RateLimiter::for('api', function (Request $request) {
-                // Limita a 60 requisições por minuto por utilizador autenticado ou IP (padrão)
-                return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-                // Poderia ajustar para um limite mais alto se necessário: Limit::perMinute(120)...
-            });
-        }
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Configuração dos Grupos de Middleware
@@ -38,7 +30,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'verified' => \App\Infrastructure\Http\Middleware\EnsureEmailIsVerified::class,
         ]);
 
-        //
+        RateLimiter::for('api', function (Request $request) {
+            return Limit::perMinute(60)->by(
+                $request->user()?->id ?: $request->ip()
+            );
+        });
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
