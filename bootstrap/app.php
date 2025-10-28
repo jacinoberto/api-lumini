@@ -21,20 +21,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->group('api', [
-            'throttle:api', // Esta linha agora encontrará a definição
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
-            // Lembre-se de remover EnsureFrontendRequestsAreStateful se mudámos para stateless
         ]);
 
         $middleware->alias([
             'verified' => \App\Infrastructure\Http\Middleware\EnsureEmailIsVerified::class,
         ]);
-
-        RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by(
-                $request->user()?->id ?: $request->ip()
-            );
-        });
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
