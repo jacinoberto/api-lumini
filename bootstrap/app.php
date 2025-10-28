@@ -16,7 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         then: function () {
             RateLimiter::for('api', function (Request $request) {
+                // Limita a 60 requisições por minuto por utilizador autenticado ou IP (padrão)
                 return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+                // Poderia ajustar para um limite mais alto se necessário: Limit::perMinute(120)...
             });
         }
     )
@@ -27,9 +29,9 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->group('api', [
-            // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class, // <-- REMOVA OU COMENTE ESTA LINHA
-            'throttle:api',
+            'throttle:api', // Esta linha agora encontrará a definição
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            // Lembre-se de remover EnsureFrontendRequestsAreStateful se mudámos para stateless
         ]);
 
         $middleware->alias([
