@@ -5,11 +5,11 @@ namespace App\Infrastructure\Http\Controllers\Auth;
 use App\Application\DTOs\LoginDTO;
 use App\Application\UseCases\LoginUseCase;
 use App\Infrastructure\Http\Controllers\Controller;
-use App\Infrastructure\Http\Requests\Auth\LoginRequest;
+use App\Infrastructure\Http\Requests\Auth\LoginRequest; // Verifique se o nome está correto
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Auth;
+// Remova: use Illuminate\Support\Facades\Auth;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -18,23 +18,17 @@ class AuthenticatedSessionController extends Controller
     ) {}
 
     /**
-     * Handle an incoming authentication request.
+     * Handle an incoming authentication request (Stateless).
      */
     public function store(LoginRequest $request): JsonResponse
     {
-        // 1. Cria o DTO a partir dos dados validados do request
         $loginDTO = LoginDTO::fromRequest($request->validated());
+        $user = $this->loginUseCase->execute($loginDTO); // Valida credenciais
+        $user->load('barbershop'); // Carrega dados adicionais
 
-        // 2. Delega a lógica de autenticação para o UseCase
-        $user = $this->loginUseCase->execute($loginDTO);
+        // Gera um Token de API Sanctum
+        $token = $user->createToken('auth_token', ['*'], now()->addDays(30))->plainTextToken; // Token com expiração (ex: 30 dias)
 
-        // 3. Eager load a barbearia para incluir na resposta
-        $user->load('barbershop');
-
-        // 4. Cria o token de API
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        // 5. Retorna a resposta JSON de sucesso
         return response()->json([
             'access_token' => $token,
             'token_type' => 'Bearer',
@@ -43,11 +37,14 @@ class AuthenticatedSessionController extends Controller
     }
 
     /**
-     * Destroy an authenticated session.
+     * Destroy an authenticated session (Stateless - Revoga Token).
      */
     public function destroy(Request $request): Response
     {
-        $request->user()->currentAccessToken()->delete();
+        // Obtém o usuário autenticado via token e revoga o token usado na requisição
+        if ($request->user()) {
+            $request->user()->currentAccessToken()->delete();
+        }
 
         return response()->noContent();
     }
