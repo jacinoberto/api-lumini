@@ -4,6 +4,8 @@ namespace App\Domain\Entities;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -68,5 +70,26 @@ class User extends Authenticatable
     public function barbershop(): HasOne
     {
         return $this->hasOne(Barbershop::class, 'owner_id');
+    }
+
+    public function favorites(): BelongsToMany
+    {
+        return $this->belongsToMany(Barbershop::class, 'favorites')
+            ->withTimestamps();
+    }
+
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(Appointment::class, 'client_id');
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class, 'client_id');
+    }
+
+    public function hasFavorited(string $barbershopId): bool
+    {
+        return $this->favorites()->where('barbershop_id', $barbershopId)->exists();
     }
 }

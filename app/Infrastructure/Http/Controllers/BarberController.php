@@ -60,4 +60,44 @@ class BarberController extends Controller
         // Retorna o barbeiro atualizado usando o Resource
         return response()->json(new BarberResource($updatedBarber));
     }
+
+    /**
+     * Deleta um barbeiro
+     */
+    public function destroy(Barbershop $barbershop, Barber $barber)
+    {
+        // Verifica se o usuário é o dono da barbearia
+        if ($barbershop->owner_id !== auth()->id()) {
+            return response()->json([
+                'message' => 'Você não tem permissão para deletar este barbeiro.'
+            ], 403);
+        }
+
+        // Verifica se o barbeiro pertence à barbearia
+        if ($barber->barbershop_id !== $barbershop->id) {
+            return response()->json([
+                'message' => 'Barbeiro não encontrado nesta barbearia.'
+            ], 404);
+        }
+
+        try {
+            // Deleta o barbeiro
+            $barber->delete();
+
+            return response()->json([
+                'message' => 'Barbeiro removido da equipe com sucesso!'
+            ], 200);
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Se houver agendamentos, vai dar erro de foreign key
+            if ($e->getCode() === '23000') {
+                return response()->json([
+                    'message' => 'Não é possível remover este barbeiro pois existem agendamentos associados a ele.'
+                ], 422);
+            }
+
+            return response()->json([
+                'message' => 'Erro ao remover barbeiro.'
+            ], 500);
+        }
+    }
 }

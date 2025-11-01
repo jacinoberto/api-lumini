@@ -38,4 +38,12 @@ class Service extends Model
     {
         return $this->belongsTo(Barbershop::class, 'barbershop_id');
     }
+
+    /**
+     * Relacionamento: Serviço pode ter vários Agendamentos
+     */
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class);
+    }
 }

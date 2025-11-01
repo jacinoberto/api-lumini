@@ -34,6 +34,30 @@ class ServiceController extends Controller
     }
 
     /**
+     * Busca um serviço específico
+     */
+    public function show(Barbershop $barbershop, Service $service)
+    {
+        // Verifica se o usuário é o dono da barbearia
+        if ($barbershop->owner_id !== auth()->id()) {
+            return response()->json([
+                'message' => 'Você não tem permissão para acessar este serviço.'
+            ], 403);
+        }
+
+        // Verifica se o serviço pertence à barbearia
+        if ($service->barbershop_id !== $barbershop->id) {
+            return response()->json([
+                'message' => 'Serviço não encontrado nesta barbearia.'
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $service
+        ], 200);
+    }
+
+    /**
      * Cria um novo serviço para a barbearia.
      */
     public function store(CreateServiceRequest $request, Barbershop $barbershop): JsonResponse
@@ -60,5 +84,45 @@ class ServiceController extends Controller
         $updatedService = $this->updateServiceUseCase->execute($service, $dto);
 
         return response()->json($updatedService);
+    }
+
+    /**
+     * Deleta um serviço
+     */
+    public function destroy(Barbershop $barbershop, Service $service)
+    {
+        // Verifica se o usuário é o dono da barbearia
+        if ($barbershop->owner_id !== auth()->id()) {
+            return response()->json([
+                'message' => 'Você não tem permissão para deletar este serviço.'
+            ], 403);
+        }
+
+        // Verifica se o serviço pertence à barbearia
+        if ($service->barbershop_id !== $barbershop->id) {
+            return response()->json([
+                'message' => 'Serviço não encontrado nesta barbearia.'
+            ], 404);
+        }
+
+        // Verifica se existem agendamentos futuros com este serviço
+        // CORRIGIDO: usando 'start_time' e 'status_id'
+        $futureAppointments = $service->appointments()
+            ->where('start_time', '>=', now())
+            ->whereIn('status_id', [1, 2]) // 1=pending, 2=confirmed (ajuste conforme sua tabela)
+            ->count();
+
+        if ($futureAppointments > 0) {
+            return response()->json([
+                'message' => 'Não é possível deletar este serviço pois existem agendamentos futuros associados a ele. Cancele os agendamentos primeiro ou desative o serviço.'
+            ], 422);
+        }
+
+        // Deleta o serviço
+        $service->delete();
+
+        return response()->json([
+            'message' => 'Serviço deletado com sucesso!'
+        ], 200);
     }
 }

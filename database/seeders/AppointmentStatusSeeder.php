@@ -1,4 +1,5 @@
 <?php
+// database/seeders/AppointmentStatusSeeder.php
 
 namespace Database\Seeders;
 
@@ -13,11 +14,20 @@ class AppointmentStatusSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('appointment_status')->insert([
-            ['id' => 1, 'status_key' => 'CONFIRMED', 'description' => 'Confirmado'],
-            ['id' => 2, 'status_key' => 'COMPLETED', 'description' => 'Concluído'],
-            ['id' => 3, 'status_key' => 'CANCELLED_BY_CLIENT', 'description' => 'Cancelado pelo Cliente'],
-            ['id' => 4, 'status_key' => 'CANCELLED_BY_OWNER', 'description' => 'Cancelado pela Barbearia'],
-        ]);
+        $statuses = [
+            ['id' => 1, 'status_key' => 'PENDING', 'description' => 'Aguardando Confirmação'],
+            ['id' => 2, 'status_key' => 'CONFIRMED', 'description' => 'Confirmado'],
+            ['id' => 3, 'status_key' => 'COMPLETED', 'description' => 'Concluído'],
+            ['id' => 4, 'status_key' => 'CANCELLED_BY_CLIENT', 'description' => 'Cancelado pelo Cliente'],
+            ['id' => 5, 'status_key' => 'CANCELLED_BY_OWNER', 'description' => 'Cancelado pela Barbearia'],
+            ['id' => 6, 'status_key' => 'NO_SHOW', 'description' => 'Cliente não compareceu'],
+        ];
+
+        foreach ($statuses as $status) {
+            DB::table('appointment_status')->updateOrInsert(
+                ['id' => $status['id']],
+                $status
+            );
+        }
     }
 }
