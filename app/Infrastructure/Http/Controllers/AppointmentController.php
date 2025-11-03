@@ -5,6 +5,7 @@ namespace App\Infrastructure\Http\Controllers;
 use App\Domain\Entities\Appointment;
 use App\Domain\Entities\Barbershop;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class AppointmentController extends Controller
@@ -77,11 +78,7 @@ class AppointmentController extends Controller
      */
     public function store(Request $request, Barbershop $barbershop)
     {
-        if ($barbershop->owner_id !== auth()->id()) {
-            return response()->json([
-                'message' => 'Você não tem permissão para criar agendamentos nesta barbearia.'
-            ], 403);
-        }
+        Log::debug($request);
 
         $validator = Validator::make($request->all(), [
             'client_id' => 'required|uuid|exists:users,id',
@@ -238,5 +235,58 @@ class AppointmentController extends Controller
         return response()->json([
             'message' => 'Agendamento deletado com sucesso!'
         ], 200);
+    }
+
+    public function clientAppointments(Request $request)
+    {
+        try {
+            $user = auth()->user();
+
+            if (!$user) {
+                return response()->json([
+                    'message' => 'Usuário não autenticado'
+                ], 401);
+            }
+
+            // Busca apenas agendamentos concluídos (status_id = 3)
+            $appointments = Appointment::where('client_id', $user->id)
+                ->where('status_id', 3) // Apenas concluídos
+                ->with([
+                    'barbershop:id,name',
+                    'service:id,name,price,duration_minutes',
+                    'barber:id,name'
+                ])
+                ->orderBy('start_time', 'desc')
+                ->get()
+                ->map(function($appointment) {
+                    return [
+                        'id' => $appointment->id,
+                        'barbershop_id' => $appointment->barbershop_id,
+                        'service_id' => $appointment->service_id,
+                        'barber_id' => $appointment->barber_id,
+                        'start_time' => $appointment->start_time,
+                        'barbershop_name' => $appointment->barbershop->name,
+                        'service_name' => $appointment->service->name,
+                        'service_price' => (float) $appointment->service->price,
+                        'service_duration' => $appointment->service->duration_minutes,
+                        'barber_name' => $appointment->barber->name,
+                    ];
+                });
+
+            return response()->json([
+                'data' => $appointments
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Erro ao buscar agendamentos do cliente:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'message' => 'Erro ao buscar agendamentos',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }
