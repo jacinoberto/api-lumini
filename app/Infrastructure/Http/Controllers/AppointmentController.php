@@ -5,6 +5,7 @@ namespace App\Infrastructure\Http\Controllers;
 use App\Domain\Entities\Appointment;
 use App\Domain\Entities\Barbershop;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -46,6 +47,77 @@ class AppointmentController extends Controller
         return response()->json([
             'data' => $appointments
         ], 200);
+    }
+
+    public function rateAppointment(Request $request, $id)
+    {
+        try {
+            $user = auth()->user();
+
+            // Busca o agendamento
+            $appointment = Appointment::where('id', $id)
+                ->where('client_id', $user->id)
+                ->where('status_id', 3) // Apenas concluídos podem ser avaliados
+                ->firstOrFail();
+
+            // Valida dados
+            $validated = $request->validate([
+                'rating' => 'required|integer|min:1|max:5',
+                'comment' => 'nullable|string|max:500'
+            ]);
+
+            // Verifica se já existe avaliação (unique constraint)
+            $existingReview = DB::table('reviews')
+                ->where('appointment_id', $appointment->id)
+                ->first();
+
+            if ($existingReview) {
+                return response()->json([
+                    'message' => 'Este agendamento já foi avaliado'
+                ], 400);
+            }
+
+            // Cria a avaliação
+            $reviewId = \Illuminate\Support\Str::orderedUuid()->toString();
+
+            DB::table('reviews')->insert([
+                'id' => $reviewId,
+                'appointment_id' => $appointment->id,
+                'barbershop_id' => $appointment->barbershop_id,
+                'client_id' => $user->id,
+                'rating' => $validated['rating'],
+                'comment' => $validated['comment'] ?? null,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+
+            // Atualiza média de avaliação da barbearia
+            $this->updateBarbershopRating($appointment->barbershop_id);
+
+            return response()->json([
+                'message' => 'Avaliação enviada com sucesso!',
+                'data' => [
+                    'id' => $reviewId,
+                    'rating' => $validated['rating'],
+                    'comment' => $validated['comment']
+                ]
+            ], 201);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'message' => 'Agendamento não encontrado ou não pode ser avaliado'
+            ], 404);
+        } catch (\Exception $e) {
+            Log::error('Erro ao salvar avaliação:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'message' => 'Erro ao salvar avaliação',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
@@ -288,5 +360,21 @@ class AppointmentController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    private function updateBarbershopRating($barbershopId)
+    {
+        $stats = DB::table('reviews')
+            ->where('barbershop_id', $barbershopId)
+            ->selectRaw('AVG(rating) as average, COUNT(*) as count')
+            ->first();
+
+        DB::table('barbershops')
+            ->where('id', $barbershopId)
+            ->update([
+                'rating_average' => $stats->average ?? 0,
+                'rating_count' => $stats->count ?? 0,
+                'updated_at' => now()
+            ]);
     }
 }
