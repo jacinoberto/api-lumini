@@ -7,11 +7,13 @@ use App\Application\UseCases\UpdateBusinessHoursUseCase;
 use App\Application\UseCases\UpdateOnboardingProfileUseCase;
 use App\Domain\Entities\Appointment;
 use App\Domain\Entities\Barbershop;
+use App\Domain\Entities\BusinessHour;
 use App\Infrastructure\Http\Requests\Barbershop\UpdateBusinessHoursRequest;
 use App\Infrastructure\Http\Requests\Barbershop\UpdateOnboardingProfileRequest;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 
 class BarbershopController extends Controller
@@ -344,5 +346,83 @@ class BarbershopController extends Controller
         }
 
         return $slots;
+    }
+
+    /**
+     * Atualiza um horário de funcionamento específico
+     */
+    public function updateHour(Request $request, Barbershop $barbershop, $businessHourId)
+    {
+        $rules['start_time'] = 'sometimes|date_format:H:i|date_format:H:i:s';
+        $rules['end_time'] = 'sometimes|date_format:H:i|date_format:H:i:s|after:start_time';
+
+        if ($request->has('start_time')) {
+            $request->merge([
+                'start_time' => substr($request->start_time, 0, 5)
+            ]);
+        }
+
+        if ($request->has('end_time')) {
+            $request->merge([
+                'end_time' => substr($request->end_time, 0, 5)
+            ]);
+        }
+
+        if ($barbershop->owner_id !== auth()->id()) {
+            return response()->json([
+                'message' => 'Você não tem permissão para gerenciar horários desta barbearia.'
+            ], 403);
+        }
+
+        $businessHour = BusinessHour::find($businessHourId);
+
+        if (!$businessHour || $businessHour->barbershop_id !== $barbershop->id) {
+            return response()->json([
+                'message' => 'Horário de funcionamento não encontrado.'
+            ], 404);
+        }
+
+        // Validação condicional
+        $isActive = $request->has('is_active') ? $request->is_active : $businessHour->is_active;
+
+        $rules = [
+            'day_of_week' => 'sometimes|integer|between:0,6',
+            'is_active' => 'boolean'
+        ];
+
+        if ($isActive) {
+            $rules['start_time'] = 'sometimes|date_format:H:i';
+            $rules['end_time'] = 'sometimes|date_format:H:i|after:start_time';
+        } else {
+            $rules['start_time'] = 'sometimes|date_format:H:i';
+            $rules['end_time'] = 'sometimes|date_format:H:i';
+        }
+
+        $validator = Validator::make($request->all(), $rules, [
+            'day_of_week.between' => 'Dia da semana deve estar entre 0 (Domingo) e 6 (Sábado).',
+            'end_time.after' => 'Horário de término deve ser posterior ao horário de início.'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Erro de validação',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Atualiza usando Eloquent (não Query Builder)
+        $businessHour->fill($request->only([
+            'day_of_week',
+            'start_time',
+            'end_time',
+            'is_active'
+        ]));
+
+        $businessHour->save();
+
+        return response()->json([
+            'message' => 'Horário de funcionamento atualizado com sucesso!',
+            'data' => $businessHour
+        ], 200);
     }
 }
