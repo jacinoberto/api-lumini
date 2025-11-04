@@ -338,6 +338,7 @@ class BarbershopController extends Controller
         $currentTime = strtotime($openTime);
         $closeTime = strtotime($closeTime);
 
+
         while ($currentTime < $closeTime) {
             $slots[] = date('H:i', $currentTime);
             $currentTime = strtotime("+{$intervalMinutes} minutes", $currentTime);
