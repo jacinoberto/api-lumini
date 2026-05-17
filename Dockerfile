@@ -1,5 +1,5 @@
 # Use a imagem oficial do PHP 8.2 com FPM (FastCGI Process Manager)
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 # Defina o diretório de trabalho dentro do container
 WORKDIR /var/www/html
@@ -32,7 +32,7 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 # Copie os arquivos de dependência primeiro para aproveitar o cache do Docker
 COPY composer.json composer.lock ./
 # Instala apenas dependências de produção e otimiza o autoloader
-RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader
+RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader --ignore-platform-reqs
 
 # Copie o restante do código da aplicação
 COPY . .
