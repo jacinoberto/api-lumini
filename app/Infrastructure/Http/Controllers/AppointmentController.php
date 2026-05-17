@@ -2,8 +2,11 @@
 
 namespace App\Infrastructure\Http\Controllers;
 
+use App\Application\DTOs\CreatePaymentDTO;
+use App\Application\UseCases\CreatePaymentPreferenceUseCase;
 use App\Domain\Entities\Appointment;
 use App\Domain\Entities\Barbershop;
+use App\Domain\Repositories\PaymentRepositoryInterface;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +14,11 @@ use Illuminate\Support\Facades\Validator;
 
 class AppointmentController extends Controller
 {
+    public function __construct(
+        private readonly CreatePaymentPreferenceUseCase $createPaymentPreference,
+        private readonly PaymentRepositoryInterface     $paymentRepository,
+    ) {}
+
     /**
      * Lista todos os agendamentos de uma barbearia
      */
@@ -23,7 +31,13 @@ class AppointmentController extends Controller
         }
 
         $query = $barbershop->appointments()
-            ->with(['client', 'barber', 'service', 'status'])
+            ->with([
+                'client:id,name,phone',
+                'barber:id,name',
+                'service:id,name,price,duration_minutes',
+                'status:id,status_key,description',
+                'payment:id,appointment_id,status,amount,paid_at',
+            ])
             ->orderBy('start_time', 'asc');
 
         // Filtro por data
@@ -137,8 +151,7 @@ class AppointmentController extends Controller
             ], 404);
         }
 
-        // Carrega relacionamentos
-        $appointment->load(['client', 'barber', 'service', 'status']);
+        $appointment->load(['client:id,name,phone', 'barber:id,name', 'service:id,name,price,duration_minutes', 'status:id,status_key,description', 'payment:id,appointment_id,status,amount,paid_at']);
 
         return response()->json([
             'data' => $appointment
@@ -309,6 +322,103 @@ class AppointmentController extends Controller
         ], 200);
     }
 
+    public function clientStore(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'barbershop_id' => 'required|uuid|exists:barbershops,id',
+            'barber_id'     => 'required|uuid|exists:barbers,id',
+            'service_id'    => 'required|uuid|exists:services,id',
+            'start_time'    => 'required|date',
+            'end_time'      => 'required|date|after:start_time',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Erro de validação', 'errors' => $validator->errors()], 422);
+        }
+
+        $user        = auth()->user();
+        $barbershop  = Barbershop::with('owner')->findOrFail($request->barbershop_id);
+        $service     = \App\Domain\Entities\Service::findOrFail($request->service_id);
+
+        $appointment = Appointment::create([
+            'client_id'     => $user->id,
+            'barbershop_id' => $barbershop->id,
+            'barber_id'     => $request->barber_id,
+            'service_id'    => $request->service_id,
+            'start_time'    => $request->start_time,
+            'end_time'      => $request->end_time,
+            'price'         => $service->price,
+        ]);
+
+        $appointment->load(['barber', 'service', 'status']);
+
+        // Se a barbearia exige pré-pagamento, gera preferência no Mercado Pago
+        if ($barbershop->requires_prepayment) {
+            $payment = $this->createPaymentPreference->execute(new CreatePaymentDTO(
+                appointmentId:  $appointment->id,
+                amount:         (float) $service->price,
+                clientName:     $user->name,
+                clientEmail:    $user->email,
+                serviceName:    $service->name,
+                barbershopName: $barbershop->name,
+            ));
+
+            $checkoutUrl = config('services.mercadopago.is_sandbox')
+                ? $payment->sandbox_init_point
+                : $payment->init_point;
+
+            return response()->json([
+                'message' => 'Agendamento criado. Realize o pagamento para confirmar.',
+                'data'    => $appointment,
+                'payment' => [
+                    'required'     => true,
+                    'status'       => $payment->status->value,
+                    'checkout_url' => $checkoutUrl,
+                ],
+            ], 201);
+        }
+
+        return response()->json([
+            'message' => 'Agendamento criado com sucesso!',
+            'data'    => $appointment,
+            'payment' => ['required' => false],
+        ], 201);
+    }
+
+    public function clientShow(string $id)
+    {
+        $appointment = Appointment::where('id', $id)
+            ->where('client_id', auth()->id())
+            ->with(['barbershop', 'barber', 'service', 'status'])
+            ->firstOrFail();
+
+        $payment = $this->paymentRepository->findByAppointmentId($id);
+
+        return response()->json([
+            'data'    => $appointment,
+            'payment' => $payment ? [
+                'status'       => $payment->status->value,
+                'status_label' => $payment->status->label(),
+                'paid_at'      => $payment->paid_at,
+            ] : null,
+        ]);
+    }
+
+    public function clientDestroy(string $id)
+    {
+        $appointment = Appointment::where('id', $id)
+            ->where('client_id', auth()->id())
+            ->firstOrFail();
+
+        if (!$appointment->canBeCancelled()) {
+            return response()->json(['message' => 'Este agendamento não pode ser cancelado.'], 422);
+        }
+
+        $appointment->cancel(byClient: true);
+
+        return response()->json(['message' => 'Agendamento cancelado com sucesso.']);
+    }
+
     public function clientAppointments(Request $request)
     {
         try {
@@ -320,28 +430,44 @@ class AppointmentController extends Controller
                 ], 401);
             }
 
-            // Busca apenas agendamentos concluídos (status_id = 3)
             $appointments = Appointment::where('client_id', $user->id)
-                ->where('status_id', 3) // Apenas concluídos
                 ->with([
                     'barbershop:id,name',
                     'service:id,name,price,duration_minutes',
-                    'barber:id,name'
+                    'barber:id,name',
+                    'status:id,status_key,description',
+                    'payment:id,appointment_id,status,amount,paid_at,init_point,sandbox_init_point',
                 ])
                 ->orderBy('start_time', 'desc')
                 ->get()
-                ->map(function($appointment) {
+                ->map(function ($appointment) {
+                    $payment = $appointment->payment;
+
                     return [
-                        'id' => $appointment->id,
-                        'barbershop_id' => $appointment->barbershop_id,
-                        'service_id' => $appointment->service_id,
-                        'barber_id' => $appointment->barber_id,
-                        'start_time' => $appointment->start_time,
-                        'barbershop_name' => $appointment->barbershop->name,
-                        'service_name' => $appointment->service->name,
-                        'service_price' => (float) $appointment->service->price,
+                        'id'               => $appointment->id,
+                        'barbershop_id'    => $appointment->barbershop_id,
+                        'service_id'       => $appointment->service_id,
+                        'barber_id'        => $appointment->barber_id,
+                        'start_time'       => $appointment->start_time,
+                        'end_time'         => $appointment->end_time,
+                        'status_id'        => $appointment->status_id,
+                        'status_key'       => $appointment->status->status_key ?? null,
+                        'status_label'     => $appointment->status->description ?? null,
+                        'barbershop_name'  => $appointment->barbershop->name,
+                        'service_name'     => $appointment->service->name,
+                        'service_price'    => (float) $appointment->service->price,
                         'service_duration' => $appointment->service->duration_minutes,
-                        'barber_name' => $appointment->barber->name,
+                        'barber_name'      => $appointment->barber->name,
+                        'payment'          => $payment ? [
+                            'id'             => $payment->id,
+                            'appointment_id' => $payment->appointment_id,
+                            'status'         => $payment->status instanceof \BackedEnum ? $payment->status->value : $payment->status,
+                            'amount'         => $payment->amount,
+                            'paid_at'        => $payment->paid_at,
+                            'checkout_url'   => config('services.mercadopago.is_sandbox')
+                                ? $payment->sandbox_init_point
+                                : $payment->init_point,
+                        ] : null,
                     ];
                 });
 

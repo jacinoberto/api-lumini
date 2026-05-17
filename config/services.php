@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'mercadopago' => [
+        'access_token'       => env('MP_ACCESS_TOKEN'),
+        'is_sandbox'         => env('MP_SANDBOX', true),
+        'notification_url'   => env('MP_NOTIFICATION_URL'),
+        'back_url_success'   => env('MP_BACK_URL_SUCCESS', 'http://localhost:5173/client/payment/success'),
+        'back_url_failure'   => env('MP_BACK_URL_FAILURE', 'http://localhost:5173/client/payment/failure'),
+        'back_url_pending'   => env('MP_BACK_URL_PENDING', 'http://localhost:5173/client/payment/pending'),
+    ],
+
 ];

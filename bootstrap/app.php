@@ -15,6 +15,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Confia em todos os proxies (necessário para ngrok e outros tunnels)
+        $middleware->trustProxies(at: '*');
+
+        // CORS precisa rodar antes de qualquer rota, inclusive OPTIONS preflight
+        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+
         // Configuração dos Grupos de Middleware
         $middleware->group('web', [
             // ... middlewares do grupo web ...

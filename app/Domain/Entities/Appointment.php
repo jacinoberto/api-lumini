@@ -62,6 +62,11 @@ class Appointment extends Model
         return $this->belongsTo(AppointmentStatus::class, 'status_id');
     }
 
+    public function payment(): HasOne
+    {
+        return $this->hasOne(Payment::class);
+    }
+
     public function review(): HasOne
     {
         return $this->hasOne(Review::class);

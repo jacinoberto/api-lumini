@@ -15,8 +15,15 @@ use App\Infrastructure\Http\Controllers\DashboardController;
 use App\Infrastructure\Http\Controllers\ProfileController;
 use App\Infrastructure\Http\Controllers\OnboardingController;
 use App\Infrastructure\Http\Controllers\ClientAppointmentController;
+use App\Infrastructure\Http\Controllers\PaymentController;
+use App\Infrastructure\Http\Controllers\WebhookController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+// ==========================================
+// WEBHOOKS (sem autenticação)
+// ==========================================
+Route::post('/webhooks/mercadopago', [WebhookController::class, 'mercadopago']);
 
 // ==========================================
 // ROTAS PÚBLICAS
@@ -113,5 +120,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/appointments', [AppointmentController::class, 'clientStore']);
         Route::get('/appointments/{id}', [AppointmentController::class, 'clientShow']);
         Route::delete('/appointments/{id}', [AppointmentController::class, 'clientDestroy']);
+
+        // Pagamentos (cliente)
+        Route::post('/appointments/{appointmentId}/payment', [PaymentController::class, 'create']);
+        Route::get('/appointments/{appointmentId}/payment', [PaymentController::class, 'status']);
     });
+
+    // Estorno (dono da barbearia)
+    Route::post('/barbershops/{barbershop}/appointments/{appointmentId}/refund', [PaymentController::class, 'refundAppointment']);
 });

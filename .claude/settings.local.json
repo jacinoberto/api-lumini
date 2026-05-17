@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist /FI \"PID eq 5328\")",
+      "Bash(tasklist /FI \"PID eq 7572\")",
+      "PowerShell(Stop-Process -Id 5328, 7572 -Force -ErrorAction SilentlyContinue)",
+      "Bash(php -r \"echo ini_get\\('display_errors'\\) === '' ? 'Off' : ini_get\\('display_errors'\\); echo ' | '; echo ini_get\\('error_reporting'\\);\")"
+    ]
+  }
+}

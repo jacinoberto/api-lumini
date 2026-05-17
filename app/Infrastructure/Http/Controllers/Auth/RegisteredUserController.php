@@ -7,6 +7,7 @@ use App\Application\UseCases\RegisterUserUseCase;
 use App\Infrastructure\Http\Controllers\Controller;
 use App\Infrastructure\Http\Requests\Auth\RegisterRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 // Usando nosso request atualizado
@@ -24,6 +25,8 @@ class RegisteredUserController extends Controller
      */
     public function store(RegisterRequest $request): JsonResponse
     {
+        Log::info('Iniciando processo de registro de usuário', ['email' => $request->email]);
+
         $registerUserDTO = RegisterUserDTO::fromRequest($request->validated());
         $user = $this->registerUserUseCase->execute($registerUserDTO);
         $token = $user->createToken('auth_token')->plainTextToken;
