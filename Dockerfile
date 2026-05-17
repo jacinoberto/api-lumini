@@ -27,10 +27,12 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 # Instale o Composer (Gerenciador de dependências PHP)
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
 # Copie os arquivos de dependência primeiro para aproveitar o cache do Docker
 COPY composer.json composer.lock ./
 # Instala apenas dependências de produção e otimiza o autoloader
-RUN composer install --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist --optimize-autoloader
+RUN composer install --no-dev --no-interaction --no-scripts --prefer-dist --optimize-autoloader
 
 # Copie o restante do código da aplicação
 COPY . .
