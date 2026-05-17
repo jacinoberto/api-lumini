@@ -9,7 +9,8 @@ class UpdateOnboardingProfileDTO
         public readonly ?string $coverImage,
         public readonly array $address,
         public readonly array $businessHours,
-        public readonly array $services
+        public readonly array $services,
+        public readonly array $barbers,
     ) {}
 
     public static function fromRequest(array $data): self
@@ -20,7 +21,8 @@ class UpdateOnboardingProfileDTO
             coverImage: $data['cover_image'] ?? null,
             address: $data['address'],
             businessHours: $data['business_hours'],
-            services: $data['services']
+            services: $data['services'],
+            barbers: $data['barbers'] ?? [],
         );
     }
 }

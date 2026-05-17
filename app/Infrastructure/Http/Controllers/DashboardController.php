@@ -22,27 +22,29 @@ class DashboardController extends Controller
                 ], 403);
             }
 
-            $today = Carbon::today();
-            $startOfMonth = Carbon::now()->startOfMonth();
-            $endOfMonth = Carbon::now()->endOfMonth();
+            $today          = Carbon::today();
+            $startOfMonth   = Carbon::now()->startOfMonth();
+            $endOfMonth     = Carbon::now()->endOfMonth();
 
-            // Agendamentos de hoje
-            $todayAppointments = Appointment::where('barbershop_id', $barbershop->id)
-                ->whereDate('start_time', $today)
-                ->count();
+            $stats = DB::selectOne("
+                SELECT
+                    COUNT(CASE WHEN a.start_time >= ? AND a.start_time < ? THEN 1 END) AS today_appointments,
+                    COALESCE(SUM(CASE WHEN p.status = 'approved' AND p.paid_at BETWEEN ? AND ? THEN p.amount END), 0) AS monthly_revenue
+                FROM appointments a
+                LEFT JOIN payments p ON p.appointment_id = a.id
+                WHERE a.barbershop_id = ?
+            ", [
+                $today->toDateTimeString(),
+                $today->copy()->addDay()->toDateTimeString(),
+                $startOfMonth->toDateTimeString(),
+                $endOfMonth->toDateTimeString(),
+                $barbershop->id,
+            ]);
 
-            // Receita do mês (apenas agendamentos concluídos - status_id = 3)
-            $monthlyRevenue = DB::table('appointments')
-                ->join('services', 'appointments.service_id', '=', 'services.id')
-                ->where('appointments.barbershop_id', $barbershop->id)
-                ->where('appointments.status_id', 3)
-                ->whereDate('appointments.start_time', '>=', $startOfMonth)
-                ->whereDate('appointments.start_time', '<=', $endOfMonth)
-                ->sum('services.price');
-
-            // Avaliação média da barbearia (agora vem direto da tabela barbershops)
-            $averageRating = $barbershop->rating_average ?? 0;
-            $ratingCount = $barbershop->rating_count ?? 0;
+            $todayAppointments = (int) ($stats->today_appointments ?? 0);
+            $monthlyRevenue    = (float) ($stats->monthly_revenue ?? 0);
+            $averageRating     = (float) ($barbershop->rating_average ?? 0);
+            $ratingCount       = (int) ($barbershop->rating_count ?? 0);
 
             return response()->json([
                 'data' => [

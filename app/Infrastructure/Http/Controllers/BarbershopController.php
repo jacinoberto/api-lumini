@@ -27,6 +27,24 @@ class BarbershopController extends Controller
     // MÉTODOS DO OWNER (já existentes)
     // ==========================================
 
+    public function updateSettings(Request $request, Barbershop $barbershop): JsonResponse
+    {
+        $this->authorize('update', $barbershop);
+
+        $request->validate([
+            'requires_prepayment' => 'required|boolean',
+        ]);
+
+        $barbershop->update([
+            'requires_prepayment' => $request->boolean('requires_prepayment'),
+        ]);
+
+        return response()->json([
+            'message' => 'Configurações atualizadas com sucesso.',
+            'requires_prepayment' => $barbershop->requires_prepayment,
+        ]);
+    }
+
     public function update(UpdateOnboardingProfileRequest $request, Barbershop $barbershop): JsonResponse
     {
         $this->authorize('update', $barbershop);

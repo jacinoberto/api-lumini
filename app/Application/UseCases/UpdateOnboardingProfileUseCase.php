@@ -10,6 +10,7 @@ use App\Domain\Repositories\BusinessHourRepositoryInterface;
 use App\Domain\Repositories\ServiceRepositoryInterface;
 use App\Domain\Repositories\ZipCodeRepositoryInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class UpdateOnboardingProfileUseCase
 {
@@ -41,6 +42,18 @@ class UpdateOnboardingProfileUseCase
 
             $this->businessHourRepository->updateForBarbershop($barbershop->id, $data->businessHours);
             $this->serviceRepository->createForBarbershop($barbershop->id, $data->services);
+
+            if (!empty($data->barbers)) {
+                DB::table('barbers')->insert(
+                    array_map(fn($b) => [
+                        'id'           => Str::uuid()->toString(),
+                        'barbershop_id' => $barbershop->id,
+                        'name'         => $b['name'],
+                        'specialties'  => $b['specialties'] ?? null,
+                        'is_active'    => true,
+                    ], $data->barbers)
+                );
+            }
 
             $barbershop->biography = $data->biography;
             $barbershop->address_id = $address->id;

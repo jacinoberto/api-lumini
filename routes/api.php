@@ -25,6 +25,8 @@ use Illuminate\Support\Facades\Route;
 // ==========================================
 Route::post('/webhooks/mercadopago', [WebhookController::class, 'mercadopago']);
 
+Route::get('/health', fn() => response()->json(['status' => 'ok']));
+
 // ==========================================
 // ROTAS PÚBLICAS
 // ==========================================
@@ -65,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('barbershops')->group(function () {
         Route::put('/{barbershop}', [BarbershopController::class, 'update']);
         Route::put('/{barbershop}/profile', [ProfileController::class, 'updateBarbershop']);
+        Route::patch('/{barbershop}/settings', [BarbershopController::class, 'updateSettings']);
 
         Route::get('/{barbershop}/dashboard/stats', [DashboardController::class, 'stats']);
         Route::get('/{barbershop}/dashboard/today', [DashboardController::class, 'todayAppointments']);

@@ -48,6 +48,10 @@ class UpdateOnboardingProfileRequest extends FormRequest
             'services.*.price' => ['required', 'numeric', 'min:0'],
             'services.*.duration_minutes' => ['required', 'integer', 'min:5'],
             'services.*.description' => ['nullable', 'string'],
+
+            'barbers' => ['nullable', 'array'],
+            'barbers.*.name' => ['required', 'string', 'max:100'],
+            'barbers.*.specialties' => ['nullable', 'string', 'max:255'],
         ];
     }
 }
